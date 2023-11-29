@@ -50,7 +50,7 @@ def calc_positions(tracking_data):
     
     #compute head direction from ear positions (then add 90 so hd = 0deg when animal faces East)
     angles = np.rad2deg(np.arctan2(positions[:,3] - positions[:,1], positions[:,2] - positions[:,0]))
-    angles -= 360
+    angles = -(angles - 360)
     angles = angles%360
     
     head_x = (positions[:,0] + positions[:,2]) / 2.
@@ -123,9 +123,7 @@ def inserted_barrier_measurements(head_x,head_y,angles,barrier_coord_1,barrier_c
 
 
 #scale head and angle pixel positions to arena by taking the minimum x and y values and 
-def get_head_and_angles(dlc_file):
-    arena_x_length = 60
-    arena_y_length = 71
+def get_head_and_angles(dlc_file, arena_x_length, arena_y_length):
     head_x, head_y, angles = calc_positions(dlc_file)
     head_x -= np.min(head_x)
     head_x *= (arena_x_length/np.max(head_x))

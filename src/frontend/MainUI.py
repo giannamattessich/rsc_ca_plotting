@@ -1,13 +1,11 @@
-import sys
-sys.path.append(r'C:\Users\Gianna\Documents\Python Scripts\rsc_ca_plotting')
 from PyQt5.uic import loadUi
 from PyQt5.QtCore import pyqtSlot as Slot
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QColorDialog
-from PyQt5.QtGui import QPixmap, QFont, QIcon, QColor
+from PyQt5.QtGui import QFont
 from src.handle_dirs import can_create_directory
 from src.plotting.timeseries_plot import TimeSeriesPlots
+from src.frontend.BarrierDialog import BarrierDialog
 from colour import Color
-import os
 
 
 class MainUI(QMainWindow):
@@ -36,7 +34,8 @@ class MainUI(QMainWindow):
         self.arena_y_line_edit.textChanged.connect(self.set_arena_y)
         self.spike_plot_checkbox.stateChanged.connect(self.set_spike_plot)
         self.ebc_boundary_checkbox.stateChanged.connect(self.set_ebc_boundary_plot)
-        self.ebc_barrier_checkbox.stateChanged.connect(self.set_ebc_boundary_barrier_plot)
+        self.ebc_barrier_checkbox.stateChanged.connect(self.set_ebc_barrier_plot)
+        self.ebc_boundary_barrier_checkbox.stateChanged.connect(self.set_ebc_boundary_barrier_plot)
         self.heatmap_checkbox.stateChanged.connect(self.set_heatmap_plot)
         self.hd_curve_checkbox.stateChanged.connect(self.set_hd_curve_plot)
         self.plot_it_button.clicked.connect(self.on_plot_click)
@@ -61,6 +60,7 @@ class MainUI(QMainWindow):
         self.plot_dict = {'spike_plot': False, 'ebc_boundary': False,
                            'ebc_barrier': False, 'ebc_boundary_barrier': False, 'heatmap': False, 'hd_curve': False}
 
+        self.plot_attributes = {}
         self.spike_line_color = self.trajectory_color_line_edit.text()
         self.line_size = self.trajectory_width_spinbox.value()
         self.trajectory_width_spinbox.setValue(1.25)
@@ -68,6 +68,7 @@ class MainUI(QMainWindow):
         self.spike_sizes_spinbox.setValue(6)
         self.hd_line_color = self.hd_color_line_edit.text()
         self.output_folder_name = self.output_folder_name_line_edit.text()
+
 
     def check_color(self, color):
         try:
@@ -89,29 +90,26 @@ class MainUI(QMainWindow):
     
     # get attributes needed for making plots
     def get_plot_kwargs(self, *args):
-        plot_attributes = {}
         if 'spike_plot' in args:
             if (len(self.trajectory_color_line_edit.text())) > 0 & (self.check_color(self.trajectory_color_line_edit.text())):
-                plot_attributes['spike_line_color'] = self.trajectory_color_line_edit.text()
+                self.plot_attributes['spike_line_color'] = self.trajectory_color_line_edit.text()
             else:
                 self.show_error_message('Trajectory line color has not been selected.')
                 return
             if self.trajectory_width_spinbox.value() > 0:
-                plot_attributes['line_size'] = self.trajectory_width_spinbox.value()
+                self.plot_attributes['line_size'] = self.trajectory_width_spinbox.value()
             else:
                 self.show_error_message('Trajectory width cannot be 0.')
             if self.spike_sizes_spinbox.value() > 0:
-                plot_attributes['spike_size'] = self.spike_sizes_spinbox.value()
+                self.plot_attributes['spike_size'] = self.spike_sizes_spinbox.value()
             else:
                 self.show_error_message('Spike sizes cannot be 0.')
         if 'hd_curve' in args:
             if (len(self.hd_color_line_edit.text()) > 0) & (self.check_color(self.hd_color_line_edit.text())):
-                plot_attributes['hd_line_color'] = self.hd_color_line_edit.text()
-        return plot_attributes
+                self.plot_attributes['hd_line_color'] = self.hd_color_line_edit.text()
+        return self.plot_attributes
 
     
-    
-
     def on_plot_click(self):
         if ((self.calcium_dir_selected )& (self.dlc_dir_selected) & (self.output_path_selected) &
              (len(self.output_folder_name_line_edit.text()) > 0) & (self.single_day_rec_radio.isChecked())):
@@ -120,11 +118,18 @@ class MainUI(QMainWindow):
             plot_attributes = self.get_plot_kwargs(*plots_to_make)
             
             if len(plots_to_make) > 0:
-                self.timeseries_plots = TimeSeriesPlots(self.calcium_input_dir,
-                                                         self.dlc_input_dir,
+                self.timeseries_plots = TimeSeriesPlots(self.calcium_input_dir, 
+                                                        self.dlc_input_dir,
                                                          self.output_path_line_edit.text(),
                                                            framerate= int(self.framerate_line_edit.text()),
-                                                             two_dim_arena_coords= [int(self.arena_x_line_edit.text()), int(self.arena_y_line_edit.text())])
+                                                             two_dim_arena_coords= [int(self.arena_x_line_edit.text()),
+                                                                                     int(self.arena_y_line_edit.text())])
+                
+                if (('ebc_barrier' in plots_to_make) or ('ebc_boundary_barrier' in plots_to_make)):
+                    self.show_barrier_dialog(self.timeseries_plots)
+                else:
+                    self.show_complete_dialog('Plotting begun!')
+
                 self.timeseries_plots.plot_figures(self.output_folder_name_line_edit.text(), *plots_to_make, **plot_attributes)
                 return
         elif (not self.calcium_dir_selected):
@@ -354,6 +359,22 @@ class MainUI(QMainWindow):
         msg_box.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
         msg_box.exec_()
 
+
+    def show_barrier_dialog(self, process_obj):
+        self.barrier_dialog = BarrierDialog(process_obj)
+        self.barrier_dialog.barrier_coords_selected.connect(self.barrier_selected)
+        self.barrier_dialog.exec_()
+
+    @Slot()
+    def barrier_selected(self):
+        self.plot_attributes['barrier_coords'] = self.barrier_dialog.get_coords()
+        self.barrier_dialog.accept()
+        self.show_complete_dialog('Plotting begun!')
+        self.barrier_dialog.barrier_coords_selected.disconnect(self.barrier_selected)
+
+
+
+
     def show_color_dialog_trajectory(self):
         color = QColorDialog.getColor()
 
@@ -373,8 +394,3 @@ class MainUI(QMainWindow):
             self.hd_color_line_edit.setStyleSheet(f'background-color: {color_string};')
     
 
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    mainWindow = MainUI()
-    mainWindow.show()
-    sys.exit(app.exec_())
