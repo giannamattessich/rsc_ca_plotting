@@ -131,9 +131,9 @@ def get_head_and_angles(dlc_file, arena_x_length, arena_y_length):
     head_y *= (arena_y_length/np.max(head_y))
     return head_x, head_y, angles
 
+
 def frame_num_to_seconds(framerate, frame_num):
     return frame_num / framerate
-
 
 def get_timestamps(sessions_data, session_idx, framerate):
     dlc_file = sessions_data[session_idx][0]

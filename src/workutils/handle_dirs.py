@@ -7,10 +7,13 @@ import pandas as pd
 
 #check if provided path can be created 
 def can_create_directory(directory_path):
-    parent_directory = os.path.dirname(directory_path)
-
-    if os.path.exists(parent_directory) and os.access(parent_directory, os.W_OK):
-        return True
+    if os.path.isdir(directory_path):
+        parent_directory = os.path.dirname(directory_path)
+        if os.path.exists(parent_directory) & os.access(parent_directory, os.W_OK):
+            return True
+        elif not os.path.exists(parent_directory) & os.access(parent_directory, os.W_OK):
+            os.makedirs(directory_path)
+            return True
     else:
         return False
 
@@ -56,6 +59,18 @@ def get_spike_files(spike_directory):
             raise Exception('Could not find any DLC files in the provided directory.')
     return spike_dict
 
+def move_files(files, destination):
+    if not os.path.exists(destination) & can_create_directory(destination):
+        os.makedirs(destination)
+    try:
+        # Move each file to the destination directory
+        for file_path in list(set(files)):
+            file_name = os.path.basename(file_path)
+            destination_path = os.path.join(destination, file_name)
+            shutil.copy(file_path, destination_path)
+    except IOError:
+        print(fr'Could not move files to {destination}.')
+
 
 ####*** create nested array of sessions and files for each session and find number of sessions ***####
 # each array within represents a session, inner arrays contain tracking file and event file dataframes for that session in the sessions_data variable
@@ -81,29 +96,18 @@ def combine_files_get_num_sessions(spike_dir, dlc_dir, output_folder):
             spike_empty = os.path.getsize(spike_file) == 0
             if ((spike_dir == dlc_dir) & ((not dlc_empty) & (not spike_empty))):
                 sessions_data.append([pd.read_csv(dlc_file, header=[1,2]), pd.read_csv(spike_file)])
-            elif ((not dlc_empty) & (not spike_empty)):
+            elif ((not dlc_empty) & (not spike_empty) & can_create_directory(output_folder)):
                 move_files([dlc_file, spike_file], output_folder)
                 new_dlc_path = os.path.join(output_folder, os.path.basename(dlc_file))
                 new_spike_path = os.path.join(output_folder, os.path.basename(spike_file))
                 sessions_data.append([pd.read_csv(new_dlc_path, header=[1,2]), pd.read_csv(new_spike_path)])
+            elif ((not dlc_empty) & (not spike_empty) & (not can_create_directory(output_folder))):
+                raise Exception(f'The output folder {output_folder} could not be created. Please check that it is a valid file path.')
             elif (dlc_empty):
                 raise Exception(f'The file {dlc_file} is empty.')
             elif (spike_empty):
                 raise Exception(f'The file{spike_file} is empty.')
     return num_sessions, sessions_data
-
-
-def move_files(files, destination):
-    if not os.path.exists(destination) & can_create_directory(destination):
-        os.makedirs(destination)
-    try:
-        # Move each file to the destination directory
-        for file_path in list(set(files)):
-            file_name = os.path.basename(file_path)
-            destination_path = os.path.join(destination, file_name)
-            shutil.copy(file_path, destination_path)
-    except IOError:
-        print(fr'Could not move files to {destination}.')
 
 
 #find number of unique sessions, dates, and animal in directory using their file names

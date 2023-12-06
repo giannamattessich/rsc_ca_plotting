@@ -2,7 +2,7 @@ from PyQt5.uic import loadUi
 from PyQt5.QtCore import pyqtSlot as Slot
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QColorDialog
 from PyQt5.QtGui import QFont
-from src.handle_dirs import can_create_directory
+from src.workutils.handle_dirs import can_create_directory
 from src.plotting.timeseries_plot import TimeSeriesPlots
 from src.frontend.BarrierDialog import BarrierDialog
 from colour import Color
@@ -100,38 +100,50 @@ class MainUI(QMainWindow):
                 self.plot_attributes['line_size'] = self.trajectory_width_spinbox.value()
             else:
                 self.show_error_message('Trajectory width cannot be 0.')
+                return
             if self.spike_sizes_spinbox.value() > 0:
                 self.plot_attributes['spike_size'] = self.spike_sizes_spinbox.value()
             else:
                 self.show_error_message('Spike sizes cannot be 0.')
+                return
         if 'hd_curve' in args:
             if (len(self.hd_color_line_edit.text()) > 0) & (self.check_color(self.hd_color_line_edit.text())):
                 self.plot_attributes['hd_line_color'] = self.hd_color_line_edit.text()
+            else:
+                self.show_error_message('Head direction curve line color is not valid.')
+                return
         return self.plot_attributes
 
     
     def on_plot_click(self):
-        if ((self.calcium_dir_selected )& (self.dlc_dir_selected) & (self.output_path_selected) &
+        if ((self.calcium_dir_selected) & (self.dlc_dir_selected) & (self.output_path_selected) &
              (len(self.output_folder_name_line_edit.text()) > 0) & (self.single_day_rec_radio.isChecked())):
             # get args for plotting function-> plot type
-            plots_to_make = self.get_plot_args()
-            plot_attributes = self.get_plot_kwargs(*plots_to_make)
-            
-            if len(plots_to_make) > 0:
-                self.timeseries_plots = TimeSeriesPlots(self.calcium_input_dir, 
-                                                        self.dlc_input_dir,
-                                                         self.output_path_line_edit.text(),
-                                                           framerate= int(self.framerate_line_edit.text()),
-                                                             two_dim_arena_coords= [int(self.arena_x_line_edit.text()),
-                                                                                     int(self.arena_y_line_edit.text())])
+            try:
+                plots_to_make = self.get_plot_args()
+                plot_attributes = self.get_plot_kwargs(*plots_to_make)
                 
-                if (('ebc_barrier' in plots_to_make) or ('ebc_boundary_barrier' in plots_to_make)):
-                    self.show_barrier_dialog(self.timeseries_plots)
-                else:
-                    self.show_complete_dialog('Plotting begun!')
+                if len(plots_to_make) > 0:
+                    self.timeseries_plots = TimeSeriesPlots(self.calcium_input_dir, 
+                                                            self.dlc_input_dir,
+                                                            self.output_path_line_edit.text(),
+                                                            framerate= int(self.framerate_line_edit.text()),
+                                                                two_dim_arena_coords= [int(self.arena_x_line_edit.text()),
+                                                                                        int(self.arena_y_line_edit.text())])
+                    
+                    if (('ebc_barrier' in plots_to_make) or ('ebc_boundary_barrier' in plots_to_make)):
+                        try:
+                            self.show_barrier_dialog(self.timeseries_plots)
+                        except ValueError as e:
+                            self.show_error_message(f"ERROR: {e}")
+                            return
+                    else:
+                        self.show_complete_dialog('Plotting begun!')
 
-                self.timeseries_plots.plot_figures(self.output_folder_name_line_edit.text(), *plots_to_make, **plot_attributes)
-                return
+                    self.timeseries_plots.plot_figures(self.output_folder_name_line_edit.text(), *plots_to_make, **plot_attributes)
+                    return
+            except Exception as e:
+                self.show_error_message(f"ERROR: {e}")
         elif (not self.calcium_dir_selected):
               self.show_error_message('Calcium directory has not been selected')
               return
@@ -139,9 +151,14 @@ class MainUI(QMainWindow):
             self.show_error_message('DLC directory has not been selected ')
             return 
         elif (not self.output_path_selected):
-            self.show_error_message('Output path has not been selected')
+            self.show_error_message('Valid output path has not been selected')
+            return
+        elif not (len(self.output_folder_name_line_edit.text()) > 0):
+            self.show_error_message('Output folder name has not been selected')
+            return
         else:
             self.show_error_message('No plot type has been selected. Please try checking one of the boxes to make plots.')
+            return
 
 
 # check if the plotting can start based on whether dirs are selected and output folder specified 
@@ -175,21 +192,23 @@ class MainUI(QMainWindow):
                     self.output_path_line_edit.setText('')
         else:
             self.calcium_dlc_same_dir = False
+            # if (self.output_path_selected):
+            #     if not can_create_directory(self.output_path_selected):
+            #         self.show_error_message('Output path selected is not a valid path. Please try again by entering a new path.')
+            #         print('cant create')
+            #         return
             if ((self.dlc_dir_selected) | (self.calcium_dir_selected)):
                 self.show_complete_dialog('Calcium and DLC files will not be set to the same input folder.')
                 self.calcium_spike_input_line_edit.setText('')
                 self.dlc_input_line_edit.setText('')
                 self.output_path_line_edit.setText('')
-
-    #get the name of plots and return a tuple of args to provide to the plotting function 
-
-    
     
     @Slot()
     def set_output_path(self):
-        if (len(self.output_path_line_edit.text()) > 0 & can_create_directory(self.output_path_line_edit.text())):
+        if ((len(self.output_path_line_edit.text()) > 0) & (can_create_directory(self.output_path_line_edit.text()))):
             self.output_path_selected = True
             self.output_path = self.output_path_line_edit.text()
+            print(f'can create   {self.output_path_line_edit.text()}')
         else:
             self.output_path_selected = False
 
@@ -367,12 +386,14 @@ class MainUI(QMainWindow):
 
     @Slot()
     def barrier_selected(self):
-        self.plot_attributes['barrier_coords'] = self.barrier_dialog.get_coords()
-        self.barrier_dialog.accept()
-        self.show_complete_dialog('Plotting begun!')
+        try:
+            self.plot_attributes['barrier_coords'] = self.barrier_dialog.get_coords()
+            self.barrier_dialog.accept()
+            self.show_complete_dialog('Plotting begun!')
+        except ValueError as e:
+            self.show_error_message(f'ERROR: {e}')
+            return
         self.barrier_dialog.barrier_coords_selected.disconnect(self.barrier_selected)
-
-
 
 
     def show_color_dialog_trajectory(self):

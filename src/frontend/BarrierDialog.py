@@ -11,29 +11,33 @@ class BarrierDialog(QDialog):
         self.setWindowTitle('Barrier Coordinates Select')
         self.line_edits = []
         self.num_sessions = plotting_obj.num_sessions
+        self.arena_x_len = plotting_obj.arena_x_length
+        self.arena_y_len = plotting_obj.arena_y_length
         self.barrier_coords = [[[None, None], [None, None]] for _ in range(self.num_sessions)]
 
         self.main_layout = QVBoxLayout()
         self.label_layout = QHBoxLayout()
         self.first_row_layout = QHBoxLayout()
-        select_insert_layout = QHBoxLayout()
+        self.select_insert_layout = QHBoxLayout()
 
         # setup select and insert buttons  -> TO DO : delete row button
         self.insert_button = QPushButton("Insert Row", self)
         self.insert_button.setStyleSheet("background-color: 'light blue'")
         self.insert_button.clicked.connect(self.insert_row)
-        select_insert_layout.addWidget(self.insert_button)
+        self.select_insert_layout.addWidget(self.insert_button)
         self.select_button = QPushButton("Select", self)
         self.select_button.clicked.connect(self.save_coords)
         self.select_button.setStyleSheet("background-color: 'light blue'")
-        select_insert_layout.addWidget(self.select_button)
-        self.main_layout.addLayout(select_insert_layout)
+        self.select_insert_layout.addWidget(self.select_button)
+        self.main_layout.addLayout(self.select_insert_layout)
 
 
         labels = ['Session with Barrier', 'Barrier start- x coord', 'Barrier start- y coord',
                    'Barrier end- x coord', 'Barrier end- y coord']   
+        # store parent layouts for each row of line edits 
         self.inserted_layouts = []
-        for label_idx, label_text in enumerate(labels):
+        # add labels and first row of line edits
+        for label_text in labels:
             label = QLabel(label_text)    
             line_edit = QLineEdit()
             self.label_layout.addWidget(label)
@@ -44,6 +48,7 @@ class BarrierDialog(QDialog):
         self.setLayout(self.main_layout)
         self.show()
 
+    # get idx of layout and idx of line edit on layout to find entered positions
     def get_line_edit_at_pos(self, layout_num, line_edit_idx):
         line_edit_text = self.inserted_layouts[layout_num].itemAt(line_edit_idx).widget().text()
         if line_edit_text.isdigit():
@@ -59,6 +64,19 @@ class BarrierDialog(QDialog):
         self.inserted_layouts.append(new_layout)
         self.main_layout.addLayout(new_layout)
 
+    # check whether selected coordinates and session num is valid
+    def check_valid_coords(self, barrier_x_start, barrier_y_start, barrier_x_end, barrier_y_end):
+        if (barrier_x_start > self.arena_x_len) or (barrier_x_start < 0):
+            raise ValueError('Barrier- x start is greater than the arena length or less than 0. Try again with a different value.')
+        if (barrier_y_start > self.arena_y_len) or (barrier_y_start < 0):
+            raise ValueError('Barrier- y start is greater than the arena length or less than 0. Try again with a different value.')
+        if (barrier_x_end > self.arena_x_len) or (barrier_x_end < 0):
+            raise ValueError('Barrier- x end is greater than the arena length or less than 0. Try again with a different value.')
+        if (barrier_y_end > self.arena_y_len) or (barrier_y_end < 0):
+            raise ValueError('Barrier- y end is greater than the arena length or less than 0. Try again with a different value.')
+
+
+
     def save_coords(self):
         for layout_idx in range(len(self.inserted_layouts)):
             try:
@@ -73,9 +91,12 @@ class BarrierDialog(QDialog):
                 all_lines_in_row = [True if (point != '') else False for point in coords]
 
                 if all(all_lines_in_row) & (self.num_sessions > barrier_session_idx):
-
+                    try:
+                        self.check_valid_coords(barrier_x_start, barrier_y_start, barrier_x_end, barrier_y_end)
+                    except ValueError as e:
+                        return
                     self.barrier_coords[barrier_session_idx] = ([[barrier_x_start, barrier_y_start],
-                                                                       [barrier_x_end, barrier_y_end]])    
+                                                                        [barrier_x_end, barrier_y_end]])  
                 elif not all(all_lines_in_row):
                     raise ValueError('Barrier Coordinates in a row have been left blank.')
             except:

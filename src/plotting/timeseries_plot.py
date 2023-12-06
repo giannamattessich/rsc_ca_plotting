@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from src.plotting.subplot import Subplot
 import src.plotting.plot_utils as plt_util
-from src.handle_dirs import combine_files_get_num_sessions
+from src.workutils.handle_dirs import combine_files_get_num_sessions
 
 class TimeSeriesPlots(object):
         def __init__(self, spike_directory, dlc_directory, output_folder_path, framerate, two_dim_arena_coords):
@@ -127,13 +127,3 @@ class TimeSeriesPlots(object):
                 figure.savefig(destination,dpi=300)
                 plt.close()
 
-
-if __name__ == '__main__':
-    p = TimeSeriesPlots(r"C:\Users\Gianna\Desktop\Analysis - Plots\20231007_miso", 
-                    r"C:\Users\Gianna\Desktop\Analysis - Plots\20231007_miso", 
-                    r"C:\Users\Gianna\Desktop\Analysis - Plots\20231007_miso",
-                    30, [40, 40])
-
-
-    p.plot_figures('plots_one_dot_spike_boundary_barrier_hd', 'spike_plot', 'ebc_boundary_barrier', 'heatmap', 
-               barrier_coords = [[[20, 20], [20, 30]]], spike_line_color='gray', line_size = 1.5, spike_size=7)
