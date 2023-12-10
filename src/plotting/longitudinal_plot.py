@@ -100,6 +100,7 @@ class LongitudinalPlot(object):
         max = 0
         for day in self.day_and_sessions_data:
             cells = day[1][0][' Cell Name']
+            # strip string to get cell number
             cell_numbers = cells.apply(lambda x: self.get_cell_num_from_name(x))
             day_max = np.max(cell_numbers)
             if day_max > max:
@@ -133,7 +134,147 @@ class LongitudinalPlot(object):
         head_y -= np.min(head_y)
         head_y *= (self.arena_y_length/np.max(head_y))
         return head_x, head_y, angles
-    
+
+    # input the types of subplots to be created as strings on one figure
+    # output to desination
+    # *args provided should be the name of plots provided, **kwargs should be the arguments to the plots
+    # **kwargs will include:
+    #                       + for spike plots: {"spike_line_color": #XXXXXX, "line_size": xx, "spike_size": xx}
+    #                       + for barrier plots: {"barrier_coord1": [[x1,y1], [x2, y2]], "barrier_coord2": [[x3, y3], [x4, y4], 'barrier_coord3' = [[None, None], [None, None]]]
+    #                       + for HD plots: {"hd_line_color": xx}
+    def get_LR_plots(self, output_folder_name, plot_type_arg, **kwargs):
+        output_path = os.path.join(self.main_dir, output_folder_name)
+        num_rows = self.max_row_num
+        num_cols = self.num_days
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
+        for cell in self.cell_names:
+            print(cell)
+            figure = plt.figure(figsize=(5,5))
+            plt.rcParams.update({'figure.max_open_warning': 0})
+            axes = []
+            ax_indices = []
+            gs = GridSpec(nrows=num_rows, ncols=num_cols, wspace=0.75, hspace=0.75)
+            polar_plots = ['ebc_boundary', 'ebc_barrier', 'ebc_boundary_barrier', 'hd_curve']
+            for row_idx in range(num_rows):
+                for col_idx in range(num_cols):
+                    if plot_type_arg in polar_plots:
+                        axes.append(figure.add_subplot(gs[row_idx, col_idx], projection="polar"))
+                    else:
+                        axes.append(figure.add_subplot(gs[row_idx, col_idx]))
+                    ax_indices.append([row_idx, col_idx])
+            axes = [ax.axis('off') for ax in axes]
+
+            for day_idx in range(0, len(self.day_and_sessions_data)): 
+                for session in range(0, len(self.day_and_sessions_data[day_idx][1])):
+
+                    timestamps = self.get_timestamps(day_idx, session)
+                    cell_df = self.day_and_sessions_data[day_idx][1][session]
+                    cell_event_timestamps = cell_df['Time (s)'][cell_df[' Cell Name']==cell]
+                    spike_train = np.zeros_like(timestamps)
+
+                if cell_event_timestamps is not None:
+                    for event_ts in cell_event_timestamps:
+                        abs_diffs= abs(timestamps - event_ts)
+                        min_idx = np.argmin(abs_diffs, axis=0)
+                        spike_train[min_idx] = 1
+
+                head_x, head_y, angles = self.get_head_and_angles(day_idx, session)
+                head_x, head_y, angles = head_x[:-1], head_y[:-1], angles[:-1]
+                # find index in indices list to find the axis to plot on
+                ax_to_plot_index = next((i for i, sublist in enumerate(ax_indices) if sublist == [session, day_idx]), None)
+                axis_to_plot = axes[ax_to_plot_index]
+                # plot based on provided arg type -> LR plots cant be made with barriers yet
+                if (plot_type_arg == 'spike_plot')  & ('spike_line_color' in kwargs) & ('spike_size' in kwargs) & ('line_size' in kwargs):
+                    self.splt.path_spike_plot_subplot(head_x, head_y, angles, spike_train, destination=None, line_color = kwargs['spike_line_color'],
+                     spike_sizes = kwargs['spike_size'], line_size=kwargs['line_size'], axis = axis_to_plot)
+                
+                elif (plot_type_arg == 'hd_curve') & ('hd_line_color' in kwargs):
+                    axis_to_plot.axis('on')
+                    self.splt.hd_curve_subplot(angles, spike_train, line_color= kwargs['hd_line_color'], destination=None, axis=axis_to_plot)
+                    
+                elif (plot_type_arg == 'heatmap'):
+                    self.splt.heatmap_subplot(head_x, head_y, spike_train, destination=None, axis= axis_to_plot)
+                
+                elif (plot_type_arg == 'ebc_boundary'):
+                    boundary_bearings, boundary_distances = plt_util.ego_boundary_measurements(head_x, head_y, angles)
+                    boundary_bearings, boundary_distances = boundary_bearings[:-1], boundary_distances[:-1]
+                    self.splt.ebc_subplot(boundary_bearings, boundary_distances, spike_train, destination= None, axis= axis_to_plot)
+            destination = os.path.join(output_path, f'{cell}')
+            figure.tight_layout(pad=1)
+            figure.savefig(destination,dpi=300)
+            plt.close()
+
+
+    def get_LR_plots_all_days_have_cell(self, output_folder_name, plot_type_arg, **kwargs):
+        output_path = os.path.join(self.main_dir, output_folder_name)
+        num_rows = self.max_row_num
+        num_cols = self.num_days
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
+        for cell in self.cell_names:
+            print(cell)
+            figure = plt.figure(figsize=(5,5))
+            plt.rcParams.update({'figure.max_open_warning': 0})
+            axes = []
+            ax_indices = []
+            gs = GridSpec(nrows=num_rows, ncols=num_cols, wspace=0.75, hspace=0.75)
+            polar_plots = ['ebc_boundary', 'ebc_barrier', 'ebc_boundary_barrier', 'hd_curve']
+            for row_idx in range(num_rows):
+                for col_idx in range(num_cols):
+                    if plot_type_arg in polar_plots:
+                        axes.append(figure.add_subplot(gs[row_idx, col_idx], projection="polar"))
+                    else:
+                        axes.append(figure.add_subplot(gs[row_idx, col_idx]))
+                    ax_indices.append([row_idx, col_idx])
+            axes = [ax.axis('off') for ax in axes]
+            day_has_cell = True
+
+            for day_idx in range(0, len(self.day_and_sessions_data)): 
+                for session in range(0, len(self.day_and_sessions_data[day_idx][1])):
+
+                    timestamps = self.get_timestamps(day_idx, session)
+                    cell_df = self.day_and_sessions_data[day_idx][1][session]
+                    cell_event_timestamps = cell_df['Time (s)'][cell_df[' Cell Name']==cell]
+                    spike_train = np.zeros_like(timestamps)
+
+                    #exclude cell from being plotted if not all days contain a spike
+                    if len(cell_event_timestamps) == 0:
+                        day_has_cell = False
+                        break
+
+                if cell_event_timestamps is not None:
+                    for event_ts in cell_event_timestamps:
+                        abs_diffs= abs(timestamps - event_ts)
+                        min_idx = np.argmin(abs_diffs, axis=0)
+                        spike_train[min_idx] = 1
+
+                head_x, head_y, angles = self.get_head_and_angles(day_idx, session)
+                head_x, head_y, angles = head_x[:-1], head_y[:-1], angles[:-1]
+                # find index in indices list to find the axis to plot on
+                ax_to_plot_index = next((i for i, sublist in enumerate(ax_indices) if sublist == [session, day_idx]), None)
+                axis_to_plot = axes[ax_to_plot_index]
+                # plot based on provided arg type -> LR plots cant be made with barriers yet
+                if (plot_type_arg == 'spike_plot')  & ('spike_line_color' in kwargs) & ('spike_size' in kwargs) & ('line_size' in kwargs):
+                    self.splt.path_spike_plot_subplot(head_x, head_y, angles, spike_train, destination=None, line_color = kwargs['spike_line_color'],
+                     spike_sizes = kwargs['spike_size'], line_size=kwargs['line_size'], axis = axis_to_plot)
+                
+                elif (plot_type_arg == 'hd_curve') & ('hd_line_color' in kwargs):
+                    axis_to_plot.axis('on')
+                    self.splt.hd_curve_subplot(angles, spike_train, line_color= kwargs['hd_line_color'], destination=None, axis=axis_to_plot)
+
+                elif (plot_type_arg == 'heatmap'):
+                    self.splt.heatmap_subplot(head_x, head_y, spike_train, destination=None, axis= axis_to_plot)
+                
+                elif (plot_type_arg == 'ebc_boundary'):
+                    boundary_bearings, boundary_distances = plt_util.ego_boundary_measurements(head_x, head_y, angles)
+                    boundary_bearings, boundary_distances = boundary_bearings[:-1], boundary_distances[:-1]
+                    self.splt.ebc_subplot(boundary_bearings, boundary_distances, spike_train, destination= None, axis= axis_to_plot)
+            destination = os.path.join(output_path, f'{cell}')
+            figure.tight_layout(pad=1)
+            figure.savefig(destination,dpi=300)
+            plt.close()
+            
     # use calculations from plt utils and subplot class to make trajectory/spike plots
     def get_lr_spike_plots(self, spike_sizes, line_sizes):
         output_path = os.path.join(self.main_dir, 'Longitudinal Spike Plots - all days')
@@ -194,6 +335,7 @@ class LongitudinalPlot(object):
                     timestamps = plt_util.get_timestamps(day_idx, session)
                     cell_df = self.day_and_sessions_data[day_idx][1][session]
                     cell_event_timestamps = cell_df['Time (s)'][cell_df[' Cell Name']==cell]
+                    #exclude cell from being plotted if not all days contain a spike
                     if len(cell_event_timestamps) == 0:
                         day_has_cell = False
                         break
@@ -214,7 +356,3 @@ class LongitudinalPlot(object):
                 figure.tight_layout(pad=1)
                 figure.savefig(destination,dpi=300)
                 plt.close()
-
-if __name__ == '__main__':
-    l = LongitudinalPlot(r'C:\Users\Gianna\Desktop\Analysis\lr_trajectories_test', [61, 70])
-    l.get_lr_spike_plots(4, 1.25)
