@@ -7,8 +7,19 @@ from matplotlib.gridspec import GridSpec
 from src.plotting.subplot import Subplot
 import src.plotting.plot_utils as plt_util
 from src.workutils.handle_dirs import combine_files_get_num_sessions
+from PyQt5.QtCore import pyqtSignal as Signal, QObject
+
+class EmittedPlotSignals(QObject):
+     # emit a signal that provides figure 
+    figure_plotted = Signal(object)
+    # emit a signal that provides cell name plotted
+    cell_plotted = Signal(str)
+
+
 
 class TimeSeriesPlots(object):
+
+
         def __init__(self, spike_directory, dlc_directory, output_folder_path, framerate, two_dim_arena_coords):
             self.framerate = framerate #Hz
             self.bearing_bin_size = 3 #degrees
@@ -22,6 +33,7 @@ class TimeSeriesPlots(object):
             self.arena_y_length = self.two_dim_arena_coords[1]
             #instantiate a subplot object
             self.splt = Subplot(self.framerate, self.two_dim_arena_coords)
+            self.signals = EmittedPlotSignals()
             print(f'Number of sessions: {self.num_sessions}')
 
 
@@ -125,5 +137,7 @@ class TimeSeriesPlots(object):
                 plt.tight_layout()
                 destination = os.path.join(dir_output, fr'{cell.lstrip()}')
                 figure.savefig(destination,dpi=300)
+                self.signals.figure_plotted.emit(figure)
+                self.signals.cell_plotted.emit(cell)
                 plt.close()
 

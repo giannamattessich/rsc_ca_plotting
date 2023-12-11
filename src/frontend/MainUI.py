@@ -1,10 +1,12 @@
 from PyQt5.uic import loadUi
 from PyQt5.QtCore import pyqtSlot as Slot
-from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QColorDialog
+from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox, QColorDialog
 from PyQt5.QtGui import QFont
 from src.workutils.handle_dirs import can_create_directory
+from src.workutils.TaskManager import TaskManager
 from src.plotting.timeseries_plot import TimeSeriesPlots
 from src.frontend.BarrierDialog import BarrierDialog
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as PlotCanvas 
 from colour import Color
 
 
@@ -13,6 +15,8 @@ class MainUI(QMainWindow):
     def __init__(self):
         super(MainUI, self).__init__()
         loadUi(r"src\frontend\plotting_gui.ui", self)
+
+        """connect buttons"""
         # set up buttons to open file explorer and selector
         self.calcium_spike_input_button.clicked.connect(self.open_calcium_dir_dialog)
         self.dlc_files_input_button.clicked.connect(self.open_dlc_dir_dialog)
@@ -23,9 +27,6 @@ class MainUI(QMainWindow):
         # disable line edit from being written to unless button is clicked
         self.calcium_spike_input_line_edit.setReadOnly(True)
         self.dlc_input_line_edit.setReadOnly(True)
-        #self.ebc_barrier_checkbox.setReadOnly(True)
-        #self.ebc_boundary_barrier_checkbox.setReadOnly(True)
-
         self.same_folder_dlc_checkbox.stateChanged.connect(self.on_same_dir_check)
         self.single_day_rec_radio.toggled.connect(self.on_single_rec_click)
         self.multi_day_rec_radio.toggled.connect(self.on_multi_day_click)
@@ -41,7 +42,11 @@ class MainUI(QMainWindow):
         self.plot_it_button.clicked.connect(self.on_plot_click)
         self.trajectory_color_select_button.clicked.connect(self.show_color_dialog_trajectory)
         self.hd_color_select_button.clicked.connect(self.show_color_dialog_hd_color)
-        # state of input data
+
+        """create task manager """
+        self.task_manager = TaskManager()
+
+        """state of input data"""
         self.files_set = False
         self.calcium_dir_selected = False
         self.dlc_dir_selected = False
@@ -60,6 +65,7 @@ class MainUI(QMainWindow):
         self.plot_dict = {'spike_plot': False, 'ebc_boundary': False,
                            'ebc_barrier': False, 'ebc_boundary_barrier': False, 'heatmap': False, 'hd_curve': False}
 
+        """Get values from widgets"""
         self.plot_attributes = {}
         self.spike_line_color = self.trajectory_color_line_edit.text()
         self.line_size = self.trajectory_width_spinbox.value()
@@ -115,6 +121,7 @@ class MainUI(QMainWindow):
         return self.plot_attributes
 
     
+    """CREATES PLOTS"""
     def on_plot_click(self):
         if ((self.calcium_dir_selected) & (self.dlc_dir_selected) & (self.output_path_selected) &
              (len(self.output_folder_name_line_edit.text()) > 0) & (self.single_day_rec_radio.isChecked())):
@@ -139,8 +146,14 @@ class MainUI(QMainWindow):
                             return
                     else:
                         self.show_complete_dialog('Plotting begun!')
-
-                    self.timeseries_plots.plot_figures(self.output_folder_name_line_edit.text(), *plots_to_make, **plot_attributes)
+                    self.task_manager.set_process_object(self.timeseries_plots)
+                    self.timeseries_plots.signals.figure_plotted.connect(self.show_plotted_figure)
+                    self.timeseries_plots.signals.cell_plotted.connect(self.cell_name_emitted)
+                    output_folder = self.output_folder_name_line_edit.text()
+                    self.task_manager.tasks_completed.connect(self.plots_completed)
+                    self.task_manager.add_task('plot_figures', output_folder, *plots_to_make, **plot_attributes)
+                    self.task_manager.start_tasks()
+                    #self.timeseries_plots.plot_figures(self.output_folder_name_line_edit.text(), *plots_to_make, **plot_attributes)
                     return
             except Exception as e:
                 self.show_error_message(f"ERROR: {e}")
@@ -271,6 +284,38 @@ class MainUI(QMainWindow):
             except ValueError:
                 self.show_error_message('Arena y coordinate is not a valid value.')
                 self.arena_y_line_edit.setText('')
+
+    #display figure plotted 
+    @Slot(object)
+    def show_plotted_figure(self, figure):
+        canvas = PlotCanvas(figure)
+        self.plot_groupbox_layout.addWidget(canvas)
+    
+    # edit label with cell name 
+    @Slot(str)
+    def cell_name_emitted(self, cell_name):
+        self.cell_name_plotted_label.setText(f"Cell: {cell_name}")
+
+    @Slot()
+    def plots_completed(self):
+        self.show_complete_dialog('Plotting finished!')
+        try:
+            self.task_manager.tasks_completed.disconnect(self.plots_completed)
+            self.timeseries_plots.figure_plotted.disconnect(self.show_plotted_figure)
+            self.timeseries_plots.cell_plotted.disconnect(self.cell_name_emitted)
+        except Exception as e:
+            self.show_error_message(f"ERROR:{e}")
+
+    @Slot()
+    def barrier_selected(self):
+        try:
+            self.plot_attributes['barrier_coords'] = self.barrier_dialog.get_coords()
+            self.barrier_dialog.accept()
+            self.show_complete_dialog('Plotting begun!')
+        except ValueError as e:
+            self.show_error_message(f'ERROR: {e}')
+            return
+        self.barrier_dialog.barrier_coords_selected.disconnect(self.barrier_selected)
     
     def set_spike_plot(self, state):
         if (state == 2):
@@ -383,18 +428,6 @@ class MainUI(QMainWindow):
         self.barrier_dialog = BarrierDialog(process_obj)
         self.barrier_dialog.barrier_coords_selected.connect(self.barrier_selected)
         self.barrier_dialog.exec_()
-
-    @Slot()
-    def barrier_selected(self):
-        try:
-            self.plot_attributes['barrier_coords'] = self.barrier_dialog.get_coords()
-            self.barrier_dialog.accept()
-            self.show_complete_dialog('Plotting begun!')
-        except ValueError as e:
-            self.show_error_message(f'ERROR: {e}')
-            return
-        self.barrier_dialog.barrier_coords_selected.disconnect(self.barrier_selected)
-
 
     def show_color_dialog_trajectory(self):
         color = QColorDialog.getColor()
