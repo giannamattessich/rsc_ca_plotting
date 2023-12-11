@@ -149,6 +149,7 @@ class MainUI(QMainWindow):
                     self.task_manager.set_process_object(self.timeseries_plots)
                     self.timeseries_plots.signals.figure_plotted.connect(self.show_plotted_figure)
                     self.timeseries_plots.signals.cell_plotted.connect(self.cell_name_emitted)
+                    self.timeseries_plots.signals.figure_closed.connect(self.close_plotted_figure)
                     output_folder = self.output_folder_name_line_edit.text()
                     self.task_manager.tasks_completed.connect(self.plots_completed)
                     self.task_manager.add_task('plot_figures', output_folder, *plots_to_make, **plot_attributes)
@@ -285,11 +286,18 @@ class MainUI(QMainWindow):
                 self.show_error_message('Arena y coordinate is not a valid value.')
                 self.arena_y_line_edit.setText('')
 
+    @Slot()
+    def close_plotted_figure(self):
+        if hasattr(self, 'figure'):
+            self.figure.close()
+
+
     #display figure plotted 
     @Slot(object)
     def show_plotted_figure(self, figure):
         canvas = PlotCanvas(figure)
         self.plot_groupbox_layout.addWidget(canvas)
+        self.figure = canvas
     
     # edit label with cell name 
     @Slot(str)
@@ -303,6 +311,7 @@ class MainUI(QMainWindow):
             self.task_manager.tasks_completed.disconnect(self.plots_completed)
             self.timeseries_plots.figure_plotted.disconnect(self.show_plotted_figure)
             self.timeseries_plots.cell_plotted.disconnect(self.cell_name_emitted)
+            self.timeseries_plots.figure_closed.disconnect(self.close_plotted_figure)
         except Exception as e:
             self.show_error_message(f"ERROR:{e}")
 

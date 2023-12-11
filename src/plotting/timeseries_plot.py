@@ -14,7 +14,7 @@ class EmittedPlotSignals(QObject):
     figure_plotted = Signal(object)
     # emit a signal that provides cell name plotted
     cell_plotted = Signal(str)
-
+    figure_closed = Signal()
 
 
 class TimeSeriesPlots(object):
@@ -52,6 +52,7 @@ class TimeSeriesPlots(object):
             print(dir_output)
             if not os.path.exists(dir_output):
                 os.mkdir(dir_output)
+            # var to determine whether cell 1 has completed 
             for cell in np.unique(self.sessions_data[0][1][' Cell Name']):
                 print(cell)
                 figure= plt.figure()
@@ -137,6 +138,7 @@ class TimeSeriesPlots(object):
                 plt.tight_layout()
                 destination = os.path.join(dir_output, fr'{cell.lstrip()}')
                 figure.savefig(destination,dpi=300)
+                self.signals.figure_closed.emit()
                 self.signals.figure_plotted.emit(figure)
                 self.signals.cell_plotted.emit(cell)
                 plt.close()
