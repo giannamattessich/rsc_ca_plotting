@@ -5,10 +5,11 @@ from PyQt5.QtGui import QFont
 from src.workutils.handle_dirs import can_create_directory
 from src.workutils.TaskManager import TaskManager
 from src.plotting.timeseries_plot import TimeSeriesPlots
+from src.plotting.longitudinal_plot import LongitudinalPlot
 from src.frontend.BarrierDialog import BarrierDialog
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as PlotCanvas 
 from colour import Color
-
+import traceback
 
 class MainUI(QMainWindow):
 
@@ -27,6 +28,7 @@ class MainUI(QMainWindow):
         # disable line edit from being written to unless button is clicked
         self.calcium_spike_input_line_edit.setReadOnly(True)
         self.dlc_input_line_edit.setReadOnly(True)
+        # connect buttons to slots 
         self.same_folder_dlc_checkbox.stateChanged.connect(self.on_same_dir_check)
         self.single_day_rec_radio.toggled.connect(self.on_single_rec_click)
         self.multi_day_rec_radio.toggled.connect(self.on_multi_day_click)
@@ -47,7 +49,7 @@ class MainUI(QMainWindow):
         self.task_manager = TaskManager()
 
         """state of input data"""
-        self.files_set = False
+        # self.files_set = False
         self.calcium_dir_selected = False
         self.dlc_dir_selected = False
         self.output_path_selected = False
@@ -55,12 +57,6 @@ class MainUI(QMainWindow):
         self.output_folder_named = False
         self.single_day_selected = False
         self.multi_day_selected = False
-        self.spike_plot_selected = False
-        self.ebc_boundary_selected = False
-        self.ebc_barrier_selected = False
-        self.ebc_boundary_barrier_selected = False
-        self.heatmap_selected = False
-        self.hd_curve_selected = False
 
         self.plot_dict = {'spike_plot': False, 'ebc_boundary': False,
                            'ebc_barrier': False, 'ebc_boundary_barrier': False, 'heatmap': False, 'hd_curve': False}
@@ -119,45 +115,91 @@ class MainUI(QMainWindow):
                 self.show_error_message('Head direction curve line color is not valid.')
                 return
         return self.plot_attributes
+    
+    def create_timeseries_plots(self):
+        #if ((self.calcium_dir_selected) & (self.dlc_dir_selected) & (self.output_path_selected) &
+        #    (len(self.output_folder_name_line_edit.text()) > 0) & (self.single_day_rec_radio.isChecked())):
+        # get args for plotting function-> plot type
+        try:
+            plots_to_make = self.get_plot_args()
+            plot_attributes = self.get_plot_kwargs(*plots_to_make)
+            
+            if len(plots_to_make) > 0:
+                self.timeseries_plots = TimeSeriesPlots(self.calcium_input_dir, 
+                                                        self.dlc_input_dir,
+                                                        self.output_path_line_edit.text(),
+                                                        framerate= int(self.framerate_line_edit.text()),
+                                                            two_dim_arena_coords= [int(self.arena_x_line_edit.text()),
+                                                                                    int(self.arena_y_line_edit.text())])
+                
+                if (('ebc_barrier' in plots_to_make) or ('ebc_boundary_barrier' in plots_to_make)):
+                    try:
+                        self.show_barrier_dialog(self.timeseries_plots)
+                    except ValueError as e:
+                        self.show_error_message(f"ERROR: {e}")
+                        return
+                else:
+                    self.show_complete_dialog('Plotting begun!')
+                self.task_manager.set_process_object(self.timeseries_plots)
+                self.timeseries_plots.signals.figure_plotted.connect(self.show_plotted_figure)
+                self.timeseries_plots.signals.cell_plotted.connect(self.cell_name_emitted)
+                self.timeseries_plots.signals.figure_closed.connect(self.close_plotted_figure)
+                output_folder = self.output_folder_name_line_edit.text()
+                self.task_manager.tasks_completed.connect(self.timeseries_plots_completed)
+                self.task_manager.add_task('plot_figures', output_folder, *plots_to_make, **plot_attributes)
+                self.task_manager.start_tasks()
+                return
+        except Exception as e:
+            self.show_error_message(f"ERROR: {e}")
+
+
+    def create_longitudinal_plots(self):
+        try:
+            plots_to_make = self.get_plot_args()
+            plot_attributes = self.get_plot_kwargs(*plots_to_make)
+            
+            if len(plots_to_make) == 1:
+                self.longitudinal_plots = LongitudinalPlot(self.calcium_input_dir, 
+                                                        self.dlc_input_dir,
+                                                        self.output_path_line_edit.text(),
+                                                        framerate= int(self.framerate_line_edit.text()),
+                                                            two_dim_arena_coords= [int(self.arena_x_line_edit.text()),
+                                                                                    int(self.arena_y_line_edit.text())])
+                
+                if (('ebc_barrier' in plots_to_make) or ('ebc_boundary_barrier' in plots_to_make)):
+                    try:
+                        self.show_barrier_dialog(self.longitudinal_plots)
+                    except ValueError as e:
+                        self.show_error_message(f"ERROR: {e}")
+                        return
+                else:
+                    self.show_complete_dialog('Plotting begun!')
+                self.task_manager.set_process_object(self.longitudinal_plots)
+                self.longitudinal_plots.signals.figure_plotted.connect(self.show_plotted_figure)
+                self.longitudinal_plots.signals.cell_plotted.connect(self.cell_name_emitted)
+                self.longitudinal_plots.signals.figure_closed.connect(self.close_plotted_figure)
+                output_folder = self.output_folder_name_line_edit.text()
+                self.task_manager.tasks_completed.connect(self.longitudinal_plots_completed)
+                self.task_manager.add_task('plot_LR_figures', output_folder, *plots_to_make, **plot_attributes)
+                self.task_manager.start_tasks()
+                return
+            elif len(plots_to_make) > 1:
+                self.show_error_message('ERROR: Longitudinal plots cannot be created with more than 1 plot type.')
+                return
+        except Exception as e:
+            self.show_error_message(f"ERROR: {e}")
+            traceback.print_exc()
+        
 
     
     """CREATES PLOTS"""
     def on_plot_click(self):
         if ((self.calcium_dir_selected) & (self.dlc_dir_selected) & (self.output_path_selected) &
-             (len(self.output_folder_name_line_edit.text()) > 0) & (self.single_day_rec_radio.isChecked())):
-            # get args for plotting function-> plot type
-            try:
-                plots_to_make = self.get_plot_args()
-                plot_attributes = self.get_plot_kwargs(*plots_to_make)
-                
-                if len(plots_to_make) > 0:
-                    self.timeseries_plots = TimeSeriesPlots(self.calcium_input_dir, 
-                                                            self.dlc_input_dir,
-                                                            self.output_path_line_edit.text(),
-                                                            framerate= int(self.framerate_line_edit.text()),
-                                                                two_dim_arena_coords= [int(self.arena_x_line_edit.text()),
-                                                                                        int(self.arena_y_line_edit.text())])
-                    
-                    if (('ebc_barrier' in plots_to_make) or ('ebc_boundary_barrier' in plots_to_make)):
-                        try:
-                            self.show_barrier_dialog(self.timeseries_plots)
-                        except ValueError as e:
-                            self.show_error_message(f"ERROR: {e}")
-                            return
-                    else:
-                        self.show_complete_dialog('Plotting begun!')
-                    self.task_manager.set_process_object(self.timeseries_plots)
-                    self.timeseries_plots.signals.figure_plotted.connect(self.show_plotted_figure)
-                    self.timeseries_plots.signals.cell_plotted.connect(self.cell_name_emitted)
-                    self.timeseries_plots.signals.figure_closed.connect(self.close_plotted_figure)
-                    output_folder = self.output_folder_name_line_edit.text()
-                    self.task_manager.tasks_completed.connect(self.plots_completed)
-                    self.task_manager.add_task('plot_figures', output_folder, *plots_to_make, **plot_attributes)
-                    self.task_manager.start_tasks()
-                    #self.timeseries_plots.plot_figures(self.output_folder_name_line_edit.text(), *plots_to_make, **plot_attributes)
-                    return
-            except Exception as e:
-                self.show_error_message(f"ERROR: {e}")
+             (len(self.output_folder_name_line_edit.text()) > 0)):
+            if (self.single_day_rec_radio.isChecked()):
+                self.create_timeseries_plots()
+            if self.multi_day_rec_radio.isChecked():
+                self.create_longitudinal_plots()
         elif (not self.calcium_dir_selected):
               self.show_error_message('Calcium directory has not been selected')
               return
@@ -305,15 +347,26 @@ class MainUI(QMainWindow):
         self.cell_name_plotted_label.setText(f"Cell: {cell_name}")
 
     @Slot()
-    def plots_completed(self):
+    def timeseries_plots_completed(self):
         self.show_complete_dialog('Plotting finished!')
         try:
-            self.task_manager.tasks_completed.disconnect(self.plots_completed)
-            self.timeseries_plots.figure_plotted.disconnect(self.show_plotted_figure)
-            self.timeseries_plots.cell_plotted.disconnect(self.cell_name_emitted)
-            self.timeseries_plots.figure_closed.disconnect(self.close_plotted_figure)
+            self.task_manager.tasks_completed.disconnect(self.timeseries_plots_completed)
+            self.timeseries_plots.signals.figure_plotted.disconnect(self.show_plotted_figure)
+            self.timeseries_plots.signals.figure_closed.disconnect(self.close_plotted_figure)
         except Exception as e:
             self.show_error_message(f"ERROR:{e}")
+
+    @Slot()
+    def longitudinal_plots_completed(self):
+        self.show_complete_dialog('Plotting finished!')
+        try:
+            self.task_manager.tasks_completed.disconnect(self.longitudinal_plots_completed)
+            self.longitudinal_plots.signals.figure_plotted.disconnect(self.show_plotted_figure)
+            self.longitudinal_plots.signals.cell_plotted.disconnect(self.cell_name_emitted)
+            self.longitudinal_plots.signals.figure_closed.disconnect(self.close_plotted_figure)
+        except Exception as e:
+            self.show_error_message(f"ERROR:{e}")
+            traceback.print_exc()
 
     @Slot()
     def barrier_selected(self):
@@ -328,39 +381,30 @@ class MainUI(QMainWindow):
     
     def set_spike_plot(self, state):
         if (state == 2):
-            self.spike_plot_selected = True
             self.plot_dict['spike_plot'] = True
         else:
-            self.spike_plot_selected = False
             self.plot_dict['spike_plot'] = False
 
     def set_ebc_boundary_plot(self, state):
         if (state == 2):
-            self.ebc_boundary_selected = True
             self.plot_dict['ebc_boundary'] = True
         else:
-            self.ebc_boundary_selected = False
             self.plot_dict['ebc_boundary'] = False
 
     def set_ebc_barrier_plot(self, state):
         if (state == 2):
-            self.ebc_barrier_selected = True
             self.plot_dict['ebc_barrier'] = True
         else:
-            self.ebc_barrier_selected = False
             self.plot_dict['ebc_barrier'] = False
 
     def set_ebc_boundary_barrier_plot(self, state):
         if (state == 2):
-            self.ebc_boundary_barrier_selected = True
             self.plot_dict['ebc_boundary_barrier'] = True
         else:
-            self.ebc_boundary_barrier_selected = False
             self.plot_dict['ebc_boundary_barrier'] = False
 
     def set_heatmap_plot(self, state):
         if (state == 2):
-            self.heatmap_selected = True
             self.plot_dict['heatmap'] = True
         else:
             self.heatmap_selected = False
@@ -368,10 +412,8 @@ class MainUI(QMainWindow):
 
     def set_hd_curve_plot(self, state):
         if (state == 2):
-            self.hd_curve_selected = True
             self.plot_dict['hd_curve'] = True
         else:
-            self.hd_curve_selected = False
             self.plot_dict['hd_curve'] = False
 
 
@@ -455,5 +497,17 @@ class MainUI(QMainWindow):
             color_string = color.name()  # Returns color in hexadecimal format
             self.hd_color_line_edit.setText(color_string)
             self.hd_color_line_edit.setStyleSheet(f'background-color: {color_string};')
+        else: 
+            self.show_error_message('Color selected is not a valid color opion.')
+            return 
     
 
+    def closeEvent(self, event):
+        reply = QMessageBox.question(self, 'Message',
+            "Do you want to quit the program?", QMessageBox.Yes, QMessageBox.No)
+
+        if reply == QMessageBox.Yes:
+            self.task_manager.quit_tasks()
+            event.accept()
+        else:
+            event.ignore()

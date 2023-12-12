@@ -1,4 +1,5 @@
 from PyQt5.QtCore import QObject, pyqtSignal as Signal, pyqtSlot as Slot, QRunnable
+import traceback
 
 # setup trigger signal for tasks 
 class TriggerSignals(QObject):
@@ -24,7 +25,9 @@ class Worker(QRunnable):
             if func is not None and callable(func):
                 func(*self.args, **self.kwargs)
         except Exception as e:   
-            print(f"{e}")
+            print(f"ERROR: {e}")
+            traceback.print_exc()
         self.signals.finished.emit()
+        
 
     

@@ -3,6 +3,8 @@ import os
 import re
 import shutil
 import pandas as pd
+import numpy as np
+
 # functions for finding directories with calcium/DLC files and creating directories for files 
 
 #check if provided path can be created 
@@ -72,7 +74,7 @@ def move_files(files, destination):
         print(fr'Could not move files to {destination}.')
 
 
-####*** create nested array of sessions and files for each session and find number of sessions ***####
+####*** create nested array of sessions and files for each session and find number of sessions for timeseries plots***####
 # each array within represents a session, inner arrays contain tracking file and event file dataframes for that session in the sessions_data variable
 # ex. sessions_data = [[session1_dlc, session1_event], [session2_dlc, session2_event], [session3_dlc, session3_event]]
 # return sessions_data and create directory if spike and dlc dir are not the same 
@@ -110,27 +112,27 @@ def combine_files_get_num_sessions(spike_dir, dlc_dir, output_folder):
     return num_sessions, sessions_data
 
 
-#find number of unique sessions, dates, and animal in directory using their file names
-def find_animal_date(files):
-    animal_name_found = False
-    animal = None
-    dates = set()
-    animal = None
-    re_pattern = re.compile(r'(\d{8})_([^_]+)_')
-    for file in files:
-        match = re_pattern.search(file)
-        if match:
-            date = match.group(1)
-            dates.add(date)
-            animal_name = match.group(2)
-            if animal is not None & (animal != animal_name):
-                raise Exception('Provided files are not for the same animals.')
-            elif not animal_name_found:
-                animal = animal_name
-                animal_name_found = True
-    if animal is None:
-        raise ValueError('Could not find animal name from files. Please check naming of files.')
-    dates = sorted(list(dates))
-    # return an array that includes the number of every session -> (ex. [1, 2, 3] for 3 sessions)
-    return dates, animal
+# #find number of unique sessions, dates, and animal in directory using their file names
+# def find_animal_date(files):
+#     animal_name_found = False
+#     animal = None
+#     dates = set()
+#     animal = None
+#     re_pattern = re.compile(r'(\d{8})_([^_]+)_')
+#     for file in files:
+#         match = re_pattern.search(file)
+#         if match:
+#             date = match.group(1)
+#             dates.add(date)
+#             animal_name = match.group(2)
+#             if animal is not None & (animal != animal_name):
+#                 raise Exception('Provided files are not for the same animals.')
+#             elif not animal_name_found:
+#                 animal = animal_name
+#                 animal_name_found = True
+#     if animal is None:
+#         raise ValueError('Could not find animal name from files. Please check naming of files.')
+#     dates = sorted(list(dates))
+#     # return an array that includes the number of every session -> (ex. [1, 2, 3] for 3 sessions)
+#     return dates, animal
         

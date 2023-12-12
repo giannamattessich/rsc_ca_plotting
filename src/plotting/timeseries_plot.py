@@ -7,14 +7,7 @@ from matplotlib.gridspec import GridSpec
 from src.plotting.subplot import Subplot
 import src.plotting.plot_utils as plt_util
 from src.workutils.handle_dirs import combine_files_get_num_sessions
-from PyQt5.QtCore import pyqtSignal as Signal, QObject
-
-class EmittedPlotSignals(QObject):
-     # emit a signal that provides figure 
-    figure_plotted = Signal(object)
-    # emit a signal that provides cell name plotted
-    cell_plotted = Signal(str)
-    figure_closed = Signal()
+from src.workutils.PlotEmitterSignals import EmittedPlotSignals
 
 
 class TimeSeriesPlots(object):

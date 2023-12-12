@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QDialog, QLabel, QLineEdit, QPushButton, QVBoxLayout, QHBoxLayout, QGroupBox
-from PyQt5.QtCore import QObject, pyqtSignal as Signal
+from PyQt5.QtWidgets import QDialog, QLabel, QLineEdit, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox
+from PyQt5.QtCore import pyqtSignal as Signal
 
 
 class BarrierDialog(QDialog):
@@ -91,14 +91,13 @@ class BarrierDialog(QDialog):
                 all_lines_in_row = [True if (point != '') else False for point in coords]
 
                 if all(all_lines_in_row) & (self.num_sessions > barrier_session_idx):
-                    try:
-                        self.check_valid_coords(barrier_x_start, barrier_y_start, barrier_x_end, barrier_y_end)
-                    except ValueError as e:
-                        return
+                    self.check_valid_coords(barrier_x_start, barrier_y_start, barrier_x_end, barrier_y_end)
                     self.barrier_coords[barrier_session_idx] = ([[barrier_x_start, barrier_y_start],
-                                                                        [barrier_x_end, barrier_y_end]])  
+                                                                    [barrier_x_end, barrier_y_end]])  
                 elif not all(all_lines_in_row):
                     raise ValueError('Barrier Coordinates in a row have been left blank.')
+                elif (barrier_session_idx > self.num_sessions):
+                    raise ValueError('Barrier session provided is greater than the number of sessions')
             except:
                 raise ValueError('Session num provided is not an integer')
         self.barrier_coords_selected.emit()
@@ -106,3 +105,15 @@ class BarrierDialog(QDialog):
     
     def get_coords(self):
         return self.barrier_coords
+
+    """Source: https://stackoverflow.com/questions/42454260/pyqt4-handling-x-exit-button-in-qdialog"""
+    
+    def closeEvent(self, event):
+        reply = QMessageBox.question(self, 'Message',
+            "Do you want to continue selecting coordinates?", QMessageBox.Yes, QMessageBox.No)
+
+        if reply == QMessageBox.Yes:
+            event.accept()
+        else:
+            event.ignore()
+            

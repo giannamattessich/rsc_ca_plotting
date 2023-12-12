@@ -878,7 +878,7 @@
        </font>
       </property>
       <property name="text">
-       <string>Arena X Length </string>
+       <string>Arena x length </string>
       </property>
      </widget>
      <widget class="QLabel" name="arena_y_label">
@@ -1069,7 +1069,7 @@
        </font>
       </property>
       <property name="text">
-       <string>Arena Y Length </string>
+       <string>Arena y length </string>
       </property>
      </widget>
      <widget class="QLineEdit" name="arena_y_line_edit">
@@ -1370,7 +1370,7 @@
        <string notr="true">background-color:#545357</string>
       </property>
       <property name="text">
-       <string>Plot it!</string>
+       <string>Plot!</string>
       </property>
      </widget>
      <widget class="QLabel" name="trajectory_color_label">
@@ -1507,7 +1507,7 @@
        </font>
       </property>
       <property name="text">
-       <string>Trajectory Color</string>
+       <string>Trajectory color</string>
       </property>
      </widget>
      <widget class="QPushButton" name="trajectory_color_select_button">
@@ -1530,7 +1530,7 @@
        <string notr="true">background-color:#545357</string>
       </property>
       <property name="text">
-       <string>Select Color</string>
+       <string>Select color</string>
       </property>
      </widget>
      <widget class="QLineEdit" name="trajectory_color_line_edit">
@@ -1834,7 +1834,7 @@
        </font>
       </property>
       <property name="text">
-       <string>Trajectory Width</string>
+       <string>Trajectory width</string>
       </property>
      </widget>
      <widget class="QLabel" name="spike_size_label">
@@ -1971,7 +1971,7 @@
        </font>
       </property>
       <property name="text">
-       <string>Spike Sizes </string>
+       <string>Spike sizes </string>
       </property>
      </widget>
      <widget class="QLabel" name="hd_line_color_label">
@@ -2108,7 +2108,7 @@
        </font>
       </property>
       <property name="text">
-       <string>Line Color</string>
+       <string>Line color</string>
       </property>
      </widget>
      <widget class="QDoubleSpinBox" name="spike_sizes_spinbox">
@@ -2671,7 +2671,7 @@
        <string notr="true">background-color:#545357</string>
       </property>
       <property name="text">
-       <string>Select Color</string>
+       <string>Select color</string>
       </property>
      </widget>
      <widget class="QRadioButton" name="single_day_rec_radio">
@@ -3136,7 +3136,7 @@
        </font>
       </property>
       <property name="text">
-       <string>Spike and Trajectory Plots</string>
+       <string>Spike and trajectory plots</string>
       </property>
      </widget>
      <widget class="QCheckBox" name="ebc_boundary_checkbox">
@@ -3273,7 +3273,7 @@
        </font>
       </property>
       <property name="text">
-       <string>EBC- Tuned to Boundary Plots</string>
+       <string>EBC- tuned to boundary plots</string>
       </property>
      </widget>
      <widget class="QCheckBox" name="ebc_barrier_checkbox">
@@ -3410,7 +3410,7 @@
        </font>
       </property>
       <property name="text">
-       <string>EBC- Tuned to Barrier Plots</string>
+       <string>EBC- tuned to barrier plots</string>
       </property>
      </widget>
      <widget class="QCheckBox" name="ebc_boundary_barrier_checkbox">
@@ -3547,7 +3547,7 @@
        </font>
       </property>
       <property name="text">
-       <string>EBC- Tuned to Boundary/Barrier Plots</string>
+       <string>EBC- tuned to boundary/barrier plots</string>
       </property>
      </widget>
      <widget class="QCheckBox" name="heatmap_checkbox">
@@ -3684,7 +3684,7 @@
        </font>
       </property>
       <property name="text">
-       <string>Heatmap Plots</string>
+       <string>Heatmap plots</string>
       </property>
      </widget>
      <widget class="QCheckBox" name="hd_curve_checkbox">
@@ -3821,7 +3821,7 @@
        </font>
       </property>
       <property name="text">
-       <string>Head Direction Curve Plots</string>
+       <string>Head direction curve plots</string>
       </property>
      </widget>
      <widget class="QLineEdit" name="output_folder_name_line_edit">
@@ -3968,7 +3968,7 @@
        </font>
       </property>
       <property name="text">
-       <string>Output Folder Name</string>
+       <string>Output folder name</string>
       </property>
      </widget>
     </widget>
@@ -4357,7 +4357,7 @@
       <string notr="true">background-color:#545357</string>
      </property>
      <property name="text">
-      <string>Select Input Folder: Calcium Spike Files</string>
+      <string>Select input folder: calcium spike files</string>
      </property>
     </widget>
     <widget class="QPushButton" name="dlc_files_input_button">
@@ -4524,7 +4524,7 @@
       <string notr="true">background-color:#545357</string>
      </property>
      <property name="text">
-      <string>Select Input Folder: DLC Files</string>
+      <string>Select input folder: DLC files</string>
      </property>
     </widget>
     <widget class="QLineEdit" name="calcium_spike_input_line_edit">
@@ -5461,7 +5461,7 @@
       <string notr="true">background-color:#545357</string>
      </property>
      <property name="text">
-      <string>Output Folder Path:</string>
+      <string>Output folder path:</string>
      </property>
      <property name="indent">
       <number>60</number>
