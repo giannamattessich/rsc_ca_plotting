@@ -1,21 +1,16 @@
-
 import os
-import re
+import traceback
 import shutil
 import pandas as pd
-import numpy as np
 
 # functions for finding directories with calcium/DLC files and creating directories for files 
 
 #check if provided path can be created 
 def can_create_directory(directory_path):
-    if os.path.isdir(directory_path):
-        parent_directory = os.path.dirname(directory_path)
-        if os.path.exists(parent_directory) & os.access(parent_directory, os.W_OK):
-            return True
-        elif not os.path.exists(parent_directory) & os.access(parent_directory, os.W_OK):
-            os.makedirs(directory_path)
-            return True
+    parent_directory = os.path.dirname(directory_path)
+    if os.path.isabs(directory_path) & os.access(parent_directory, os.W_OK):
+        os.makedirs(directory_path, exist_ok=True)
+        return True 
     else:
         return False
 
@@ -63,15 +58,18 @@ def get_spike_files(spike_directory):
 
 def move_files(files, destination):
     if not os.path.exists(destination) & can_create_directory(destination):
-        os.makedirs(destination)
+        os.makedirs(os.path.normpath(destination))
+
     try:
         # Move each file to the destination directory
         for file_path in list(set(files)):
             file_name = os.path.basename(file_path)
-            destination_path = os.path.join(destination, file_name)
-            shutil.copy(file_path, destination_path)
+            destination_path = os.path.normpath(os.path.join(destination, file_name))
+            if not os.path.exists(destination_path):
+                shutil.copy(file_path, destination_path)
     except IOError:
         print(fr'Could not move files to {destination}.')
+        traceback.print_exc()
 
 
 ####*** create nested array of sessions and files for each session and find number of sessions for timeseries plots***####
@@ -80,7 +78,6 @@ def move_files(files, destination):
 # return sessions_data and create directory if spike and dlc dir are not the same 
 def combine_files_get_num_sessions(spike_dir, dlc_dir, output_folder):
     sessions_data= []
-    all_files = []
     num_sessions = 0
     spike_dict = get_spike_files(spike_dir)
     dlc_dict = get_dlc_files(dlc_dir)
@@ -91,8 +88,6 @@ def combine_files_get_num_sessions(spike_dir, dlc_dir, output_folder):
         for session_num in spike_dict.keys():
             dlc_file = os.path.join(dlc_dir, dlc_dict[session_num])
             spike_file = os.path.join(spike_dir, spike_dict[session_num])
-            all_files += dlc_file
-            all_files += spike_file
             #check if data frames contain data and are not empty
             dlc_empty = os.path.getsize(dlc_file) == 0
             spike_empty = os.path.getsize(spike_file) == 0
@@ -111,28 +106,3 @@ def combine_files_get_num_sessions(spike_dir, dlc_dir, output_folder):
                 raise Exception(f'The file{spike_file} is empty.')
     return num_sessions, sessions_data
 
-
-# #find number of unique sessions, dates, and animal in directory using their file names
-# def find_animal_date(files):
-#     animal_name_found = False
-#     animal = None
-#     dates = set()
-#     animal = None
-#     re_pattern = re.compile(r'(\d{8})_([^_]+)_')
-#     for file in files:
-#         match = re_pattern.search(file)
-#         if match:
-#             date = match.group(1)
-#             dates.add(date)
-#             animal_name = match.group(2)
-#             if animal is not None & (animal != animal_name):
-#                 raise Exception('Provided files are not for the same animals.')
-#             elif not animal_name_found:
-#                 animal = animal_name
-#                 animal_name_found = True
-#     if animal is None:
-#         raise ValueError('Could not find animal name from files. Please check naming of files.')
-#     dates = sorted(list(dates))
-#     # return an array that includes the number of every session -> (ex. [1, 2, 3] for 3 sessions)
-#     return dates, animal
-        

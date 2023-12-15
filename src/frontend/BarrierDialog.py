@@ -3,7 +3,8 @@ from PyQt5.QtCore import pyqtSignal as Signal
 
 
 class BarrierDialog(QDialog):
-    barrier_coords_selected = Signal()
+    barrier_coords_selected = Signal(list)
+    dialog_closed = Signal()
 
     def __init__(self, plotting_obj):
         super().__init__()
@@ -94,26 +95,28 @@ class BarrierDialog(QDialog):
                     self.check_valid_coords(barrier_x_start, barrier_y_start, barrier_x_end, barrier_y_end)
                     self.barrier_coords[barrier_session_idx] = ([[barrier_x_start, barrier_y_start],
                                                                     [barrier_x_end, barrier_y_end]])  
+                    self.barrier_coords_selected.emit(self.barrier_coords)
                 elif not all(all_lines_in_row):
                     raise ValueError('Barrier Coordinates in a row have been left blank.')
                 elif (barrier_session_idx > self.num_sessions):
                     raise ValueError('Barrier session provided is greater than the number of sessions')
             except:
                 raise ValueError('Session num provided is not an integer')
-        self.barrier_coords_selected.emit()
+        
         print(f'barrier_coords:{self.barrier_coords}')
     
-    def get_coords(self):
-        return self.barrier_coords
+    #def get_coords(self):
+    #    return self.barrier_coords
 
-    """Source: https://stackoverflow.com/questions/42454260/pyqt4-handling-x-exit-button-in-qdialog"""
-    
     def closeEvent(self, event):
         reply = QMessageBox.question(self, 'Message',
             "Do you want to continue selecting coordinates?", QMessageBox.Yes, QMessageBox.No)
 
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.No:
             event.accept()
+           # self.barrier_coords = [[[None, None], [None, None]] for _ in range(self.num_sessions)]
+            self.dialog_closed.emit()
         else:
             event.ignore()
+
             

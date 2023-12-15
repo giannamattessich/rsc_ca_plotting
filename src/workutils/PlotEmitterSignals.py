@@ -6,4 +6,5 @@ class EmittedPlotSignals(QObject):
     figure_plotted = Signal(object)
     # emit a signal that provides cell name plotted
     cell_plotted = Signal(str)
+    # emit a signal to close figure just plotted
     figure_closed = Signal()
